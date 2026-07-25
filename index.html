@@ -48,13 +48,33 @@
             <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
                 今期のアニメ
             </h1>
-            <button id="annict-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 transition-colors flex items-center gap-2">
-                <span>🔑</span> Annict連携
-            </button>
+            <div id="season-display" class="bg-slate-800 border border-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2">
+                <span>📅</span> <span id="season-label">読み込み中...</span>
+            </div>
         </div>
     </header>
 
     <main class="container mx-auto px-4 py-8">
+        <!-- シーズン選択コントロール -->
+        <div class="flex flex-wrap justify-center items-center gap-4 mb-6 bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 shadow-md">
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">表示シーズン:</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <select id="year-select" class="bg-slate-800 border border-slate-700 text-slate-200 text-sm font-semibold rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <!-- JavaScriptで動的生成されます -->
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <select id="season-select" class="bg-slate-800 border border-slate-700 text-slate-200 text-sm font-semibold rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="WINTER">冬 (1〜3月)</option>
+                    <option value="SPRING">春 (4〜6月)</option>
+                    <option value="SUMMER">夏 (7〜9月)</option>
+                    <option value="FALL">秋 (10〜12月)</option>
+                </select>
+            </div>
+        </div>
+
         <!-- 曜日選択タブ -->
         <div id="day-tabs" class="flex flex-wrap justify-center gap-2 mb-8">
             <button class="day-tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white" data-day="monday">月曜日</button>
@@ -84,38 +104,11 @@
         </div>
     </main>
 
-    <!-- Annictトークン設定モーダル -->
-    <div id="annict-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
-            <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-                <span>🔑</span> Annictアクセストークン設定
-            </h2>
-            <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-                キャスト（声優）情報を取得するために、Annictの個人用アクセストークンが必要です。<br>
-                アニクトにログインした状態で <a href="https://annict.com/settings/apps" target="_blank" class="text-blue-400 hover:underline">Annict個人用アプリ設定ページ</a> から「新規個人用アクセストークン」を「読み込み専用 (read)」で発行し、ここに貼り付けてください。
-            </p>
-            <div class="mb-4">
-                <input 
-                    type="password" 
-                    id="annict-token-input" 
-                    placeholder="アクセストークンを入力..." 
-                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
-                >
-            </div>
-            <div class="flex justify-end gap-3">
-                <button id="annict-cancel-btn" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 font-semibold transition-colors">
-                    キャンセル
-                </button>
-                <button id="annict-save-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                    保存する
-                </button>
-            </div>
-        </div>
-    </div>
+
 
     <footer class="bg-slate-900 border-t border-slate-800 mt-12 py-8">
-        <div class="container mx-auto px-4 text-center text-slate-500 text-sm">
-            <p>Data provided by Annict & Shangri-La API</p>
+        <div class="container mx-auto px-4 text-center text-slate-500 text-xs">
+            <p>データ提供: <a href="https://annict.com" target="_blank" class="text-slate-400 hover:text-blue-400 transition-colors font-semibold">Annict API</a></p>
         </div>
     </footer>
 
@@ -133,87 +126,158 @@
         const todayIndex = new Date().getDay();
         activeDay = daysMap[todayIndex];
 
-        // 日付から今期のクール・シーズン名を自動算出する関数
-        function getSeasonInfo() {
+        // 今日の日付から現在のシーズン情報を算出する関数
+        function getCurrentSeasonInfo() {
             const date = new Date();
             const year = date.getFullYear();
             const month = date.getMonth() + 1; // 1-12
-            let seasonName = 'spring';
-            let cours = 1;
+            let season = 'SPRING';
+            let label = `${year}年 春`;
             
             if (month >= 1 && month <= 3) {
-                seasonName = 'winter';
-                cours = 1;
+                season = 'WINTER';
+                label = `${year}年 冬`;
             } else if (month >= 4 && month <= 6) {
-                seasonName = 'spring';
-                cours = 2;
+                season = 'SPRING';
+                label = `${year}年 春`;
             } else if (month >= 7 && month <= 9) {
-                seasonName = 'summer';
-                cours = 3;
+                season = 'SUMMER';
+                label = `${year}年 夏`;
             } else if (month >= 10 && month <= 12) {
-                seasonName = 'autumn';
-                cours = 4;
+                season = 'FALL';
+                label = `${year}年 秋`;
             }
             
             return {
                 year: year,
-                cours: cours,
-                seasonParam: `${year}-${seasonName}`
+                season: season,
+                label: label
             };
         }
 
-        // Annict GraphQL + Shangri-La からデータを一括取得する関数
+        // 選択されたセレクトボックスの値からシーズン情報を取得する関数
+        function getSelectedSeasonInfo() {
+            const yearSelect = document.getElementById('year-select');
+            const seasonSelect = document.getElementById('season-select');
+            
+            const year = parseInt(yearSelect.value, 10);
+            const season = seasonSelect.value;
+            
+            const seasonMap = {
+                'WINTER': '冬',
+                'SPRING': '春',
+                'SUMMER': '夏',
+                'FALL': '秋'
+            };
+            const label = `${year}年 ${seasonMap[season] || season}`;
+            
+            return {
+                year: year,
+                season: season,
+                label: label
+            };
+        }
+
+        // セレクトボックスのオプションを初期化する関数
+        function populateSelectors() {
+            const yearSelect = document.getElementById('year-select');
+            const seasonSelect = document.getElementById('season-select');
+            
+            const currentYear = new Date().getFullYear();
+            const startYear = 2020;
+            
+            // 現在の年+1から2020年までを追加
+            yearSelect.innerHTML = '';
+            for (let y = currentYear + 1; y >= startYear; y--) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = `${y}年`;
+                yearSelect.appendChild(opt);
+            }
+            
+            // 初期表示は現在のシーズンを選択
+            const current = getCurrentSeasonInfo();
+            yearSelect.value = current.year;
+            seasonSelect.value = current.season;
+        }
+
+        // AniList GraphQL からデータを一括取得する関数
         async function loadAllAnimeData() {
             const grid = document.getElementById('anime-grid');
             const loader = document.getElementById('loader-container');
             const errorMsg = document.getElementById('error-message');
-
-            const token = localStorage.getItem('annict_token');
-            if (!token || token.trim() === '') {
-                loader.classList.add('hidden');
-                errorMsg.innerHTML = `
-                    <div class="max-w-md mx-auto p-6 bg-slate-800 rounded-xl border border-slate-700 shadow-xl">
-                        <p class="text-amber-500 font-bold mb-4">🔑 Annictのアクセストークンが設定されていません</p>
-                        <p class="text-sm text-slate-400 mb-6 leading-relaxed">
-                            キャスト情報やアニメ情報を取得するためにAnnict連携が必要です。<br>
-                            右上の「🔑 Annict連携」ボタンからアクセストークンを保存してください。
-                        </p>
-                        <button onclick="document.getElementById('annict-modal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg text-sm transition-colors shadow-lg">
-                            アクセストークンを設定する
-                        </button>
-                    </div>
-                `;
-                errorMsg.classList.remove('hidden');
-                return;
-            }
+            const seasonLabel = document.getElementById('season-label');
 
             try {
                 grid.classList.add('hidden');
                 loader.classList.remove('hidden');
                 errorMsg.classList.add('hidden');
 
-                const { year, cours, seasonParam } = getSeasonInfo();
+                const { year, season, label } = getSelectedSeasonInfo();
+                if (seasonLabel) {
+                    seasonLabel.textContent = label;
+                }
 
-                // 1. Annict GraphQL API からデータ取得
+                // AniList GraphQL API からデータ取得
                 const query = `
-                    query($season: String!) {
-                        searchWorks(seasons: [$season], orderBy: { field: WATCHERS_COUNT, direction: DESC }, first: 100) {
-                            nodes {
-                                annictId
-                                title
-                                titleKana
-                                media
-                                releasedOn
-                                image {
-                                    recommendedImageUrl
+                    query($season: MediaSeason, $seasonYear: Int) {
+                        Page(page: 1, perPage: 50) {
+                            media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: POPULARITY_DESC) {
+                                id
+                                title {
+                                    romaji
+                                    english
+                                    native
                                 }
-                                casts(orderBy: { field: SORT_NUMBER, direction: ASC }) {
+                                coverImage {
+                                    large
+                                }
+                                startDate {
+                                    year
+                                    month
+                                    day
+                                }
+                                format
+                                status
+                                episodes
+                                duration
+                                season
+                                seasonYear
+                                studios(isMain: true) {
                                     nodes {
-                                        character {
-                                            name
+                                        name
+                                        isAnimationStudio
+                                    }
+                                }
+                                staff {
+                                    edges {
+                                        role
+                                        node {
+                                            name {
+                                                full
+                                                native
+                                            }
                                         }
-                                        person {
-                                            name
+                                    }
+                                }
+                                externalLinks {
+                                    site
+                                    url
+                                    type
+                                }
+                                characters(role: MAIN, sort: [ROLE]) {
+                                    edges {
+                                        node {
+                                            name {
+                                                full
+                                                native
+                                            }
+                                        }
+                                        voiceActors(language: JAPANESE) {
+                                            name {
+                                                full
+                                                native
+                                            }
                                         }
                                     }
                                 }
@@ -222,70 +286,269 @@
                     }
                 `;
 
-                const annictPromise = fetch('https://api.annict.com/graphql', {
+                const res = await fetch('https://graphql.anilist.co', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Accept': 'application/json',
                     },
                     body: JSON.stringify({
                         query: query,
-                        variables: { season: seasonParam }
+                        variables: { season, seasonYear: year }
                     })
-                }).then(res => {
-                    if (!res.ok) throw new Error('Annict API response error');
-                    return res.json();
                 });
 
-                // 2. Shangri-La API から配信サービス一覧取得
-                const shangriLaPromise = fetch(`https://anime-api.xyz/api/v1/master/${year}/${cours}`)
-                    .then(res => {
-                        if (!res.ok) throw new Error('Shangri-La API response error');
-                        return res.json();
-                    });
-
-                // 並行フェッチ
-                const [annictResult, shangriLaResult] = await Promise.all([annictPromise, shangriLaPromise]);
-
-                if (annictResult.errors) {
-                    throw new Error(annictResult.errors[0].message);
+                if (!res.ok) {
+                    throw new Error('AniList API response error');
                 }
 
-                const annictWorks = annictResult.data.searchWorks.nodes;
+                const result = await res.json();
+                if (result.errors) {
+                    throw new Error(result.errors[0].message);
+                }
 
-                // 3. マッピング (アニクトのWork ＋ シャングリラの配信リンク)
-                allAnimeList = annictWorks.map(work => {
-                    // タイトルの正規化比較（スペースや記号、全角半角の違いなどを無視）
-                    const normalizeText = (t) => (t || '').toLowerCase().replace(/[\s\s　\-\:\!\?\/]/g, '');
-                    const cleanAnnictTitle = normalizeText(work.title);
+                const aniListMedia = result.data.Page.media;
+
+                // マッピング
+                allAnimeList = aniListMedia.map(media => {
+                    const title = media.title.native || media.title.romaji || media.title.english;
                     
-                    const matchedStreaming = shangriLaResult.find(item => {
-                        const cleanSgTitle = normalizeText(item.title);
-                        return cleanAnnictTitle === cleanSgTitle || 
-                               cleanSgTitle.includes(cleanAnnictTitle) || 
-                               cleanAnnictTitle.includes(cleanSgTitle);
-                    }) || {};
+                    let releasedOn = '';
+                    if (media.startDate && media.startDate.year && media.startDate.month && media.startDate.day) {
+                        releasedOn = `${media.startDate.year}-${String(media.startDate.month).padStart(2, '0')}-${String(media.startDate.day).padStart(2, '0')}`;
+                    }
+
+                    // キャスト情報（メインキャスト全員）
+                    const casts = (media.characters.edges || []).map(edge => {
+                        const characterName = edge.node.name.native || edge.node.name.full;
+                        const voiceActor = edge.voiceActors && edge.voiceActors[0] 
+                            ? (edge.voiceActors[0].name.native || edge.voiceActors[0].name.full) 
+                            : '';
+                        return {
+                            character: characterName,
+                            actor: voiceActor
+                        };
+                    }).filter(c => c.character && c.actor);
+
+                    // 配信サービスの抽出
+                    const streamingLinks = {
+                        dAnimeStore: '',
+                        unext: '',
+                        amazon: '',
+                        netflix: '',
+                        abema: '',
+                        dmm: '',
+                        nico: ''
+                    };
+                    if (media.externalLinks) {
+                        media.externalLinks.forEach(link => {
+                            const siteName = link.site.toLowerCase();
+                            const url = link.url;
+                            if (siteName.includes('danime') || siteName.includes('d anime') || url.includes('animestore.docomo')) {
+                                streamingLinks.dAnimeStore = url;
+                            } else if (siteName.includes('u-next') || url.includes('unext.jp')) {
+                                streamingLinks.unext = url;
+                            } else if (siteName.includes('amazon') || siteName.includes('prime video') || url.includes('amazon.co.jp') || url.includes('amazon.com')) {
+                                streamingLinks.amazon = url;
+                            } else if (siteName.includes('netflix') || url.includes('netflix.com')) {
+                                streamingLinks.netflix = url;
+                            } else if (siteName.includes('abema') || url.includes('abema.tv')) {
+                                streamingLinks.abema = url;
+                            } else if (siteName.includes('dmm') || url.includes('dmm.com')) {
+                                streamingLinks.dmm = url;
+                            } else if (siteName.includes('niconico') || siteName.includes('nico') || url.includes('nicovideo.jp')) {
+                                streamingLinks.nico = url;
+                            }
+                        });
+                    }
+
+                    // フォーマットと言語変換
+                    const formatMap = {
+                        'TV': 'TVアニメ',
+                        'TV_SHORT': 'TV短編',
+                        'MOVIE': '劇場映画',
+                        'SPECIAL': '特別編',
+                        'OVA': 'OVA',
+                        'ONA': 'Web配信',
+                        'MUSIC': 'MV'
+                    };
+                    const formatLabel = formatMap[media.format] || media.format || '不明';
+
+                    const statusMap = {
+                        'RELEASING': '放送中',
+                        'FINISHED': '放送終了',
+                        'NOT_YET_RELEASED': '放送前',
+                        'CANCELLED': '中止',
+                        'HIATUS': '休止中'
+                    };
+                    const statusLabel = statusMap[media.status] || media.status || '不明';
+
+                    let startDateLabel = '不明';
+                    if (media.startDate && media.startDate.year && media.startDate.month && media.startDate.day) {
+                        startDateLabel = `${media.startDate.year}年${media.startDate.month}月${media.startDate.day}日`;
+                    }
+
+                    const episodesLabel = media.episodes ? `${media.episodes}話` : '未定';
+                    const durationLabel = media.duration ? `各${media.duration}分` : '時間未定';
+
+                    const seasonMap = {
+                        'WINTER': '冬',
+                        'SPRING': '春',
+                        'SUMMER': '夏',
+                        'FALL': '秋'
+                    };
+                    const seasonLabelVal = (media.seasonYear && media.season) 
+                        ? `${media.seasonYear}年 ${seasonMap[media.season] || media.season}` 
+                        : '不明';
+
+                    // アニメーション制作会社
+                    const animationStudio = media.studios && media.studios.nodes 
+                        ? (media.studios.nodes.find(s => s.isAnimationStudio)?.name || media.studios.nodes[0]?.name || '不明')
+                        : '不明';
+
+                    // 制作会社の日本語表記変換ディクショナリ
+                    const studioMapJa = {
+                        "madhouse": "マッドハウス",
+                        "cloverworks": "クローバーワークス",
+                        "a-1 pictures": "A-1 Pictures",
+                        "wit studio": "WIT STUDIO",
+                        "mappa": "MAPPA",
+                        "ufotable": "ufotable",
+                        "kyoto animation": "京都アニメーション",
+                        "bones": "ボンズ",
+                        "shaft": "シャフト",
+                        "sunrise": "サンライズ",
+                        "bandai namco filmworks": "バンダイナムコフィルムワークス",
+                        "production i.g": "Production I.G",
+                        "trigger": "TRIGGER",
+                        "toei animation": "東映アニメーション",
+                        "studio pierrot": "ぴえろ",
+                        "pierrot": "ぴえろ",
+                        "studio ghibli": "スタジオジブリ",
+                        "silver link.": "SILVER LINK.",
+                        "j.c.staff": "J.C.STAFF",
+                        "liden films": "ライデンフィルム",
+                        "studio deen": "スタジオディーン",
+                        "david production": "david production",
+                        "shin-ei animation": "シンエイ動画",
+                        "tms entertainment": "トムス・エンタテインメント",
+                        "doga kobo": "動画工房",
+                        "p.a. works": "P.A.WORKS",
+                        "lerche": "ラルケ",
+                        "studio 3hz": "Studio 3Hz",
+                        "kinema citrus": "キネマシトラス",
+                        "studio bind": "スタジオバインド",
+                        "project no.9": "project No.9",
+                        "feel.": "feel.",
+                        "brain's base": "ブレインズ・ベース",
+                        "zero-g": "ゼロジー",
+                        "geek toys": "GEEK TOYS",
+                        "emt squared": "EMTスクエアード",
+                        "synergysp": "シナジーSP",
+                        "tezuka productions": "手塚プロダクション",
+                        "bibury animation studios": "バイブリーアニメーションスタジオ",
+                        "science saru": "サイエンスSARU",
+                        "millepensee": "ミルパンセ",
+                        "platinum vision": "プラチナビジョン",
+                        "lay-duce": "Lay-duce",
+                        "c-station": "C-Station",
+                        "olm": "OLM",
+                        "gonzo": "GONZO",
+                        "geno studio": "ジェノスタジオ",
+                        "nexus": "Nexus",
+                        "engi": "ENGI",
+                        "seven arcs": "セブン・アークス",
+                        "tatsunoko production": "タツノコプロ",
+                        "diomedéa": "ディオメディア",
+                        "gainax": "ガイナックス",
+                        "ajiado": "亜細亜堂",
+                        "ajia-do": "亜細亜堂",
+                        "yostar pictures": "Yostar Pictures",
+                        "quad": "Quad",
+                        "cygames pictures": "Cygames Pictures",
+                        "okuruto noboru": "オクルトノボル",
+                        "signal.md": "シグナル・エムディ",
+                        "satelight": "サテライト",
+                        "pine jam": "PINE JAM",
+                        "seven": "セブン",
+                        "comix wave films": "コミックス・ウェーブ・フィルム",
+                        "studio ponoc": "スタジオポノック",
+                        "studio voln": "studio VOLN",
+                        "8bit": "エイトビット",
+                        "eight bit": "エイトビット",
+                        "shuka": "朱夏",
+                        "white fox": "WHITE FOX",
+                        "studio trigger": "TRIGGER",
+                        "feel": "feel.",
+                        "drive": "ドライブ",
+                        "c2c": "C2C",
+                        "m.s.c": "M.S.C",
+                        "gohands": "GoHands",
+                        "studio kafka": "スタジオカフカ",
+                        "passione": "パッショーネ",
+                        "kinema citrus co.": "キネマシトラス"
+                    };
+                    const lowerStudio = animationStudio.toLowerCase();
+                    const translatedStudio = studioMapJa[lowerStudio] || animationStudio;
+
+                    // スタッフ情報（監督、原作、脚本、音楽）の抽出
+                    const directors = [];
+                    const originalCreators = [];
+                    const scriptwriters = [];
+                    const composers = [];
+
+                    if (media.staff && media.staff.edges) {
+                        media.staff.edges.forEach(edge => {
+                            const role = (edge.role || '').toLowerCase();
+                            const staffName = edge.node.name.native || edge.node.name.full;
+                            if (!staffName) return;
+
+                            if (role === 'director' || role === 'series director' || role === 'chief director') {
+                                directors.push(staffName);
+                            } else if (role === 'original creator' || role === 'original story' || role === 'original character design' || role.includes('original creator') || role.includes('original story')) {
+                                originalCreators.push(staffName);
+                            } else if (role === 'series composition' || role === 'script' || role === 'screenplay' || role.includes('series composition') || role.includes('screenplay')) {
+                                scriptwriters.push(staffName);
+                            } else if (role === 'music' || role === 'composer' || role === 'music composer') {
+                                composers.push(staffName);
+                            }
+                        });
+                    }
+
+                    // 公式サイトURLの抽出
+                    let officialSite = '';
+                    if (media.externalLinks) {
+                        const officialLink = media.externalLinks.find(link => 
+                            link.site.toLowerCase().includes('official') || 
+                            link.site.toLowerCase() === 'website' || 
+                            link.site.toLowerCase().includes('公式サイト')
+                        );
+                        if (officialLink) {
+                            officialSite = officialLink.url;
+                        }
+                    }
 
                     return {
-                        id: work.annictId,
-                        title: work.title,
-                        titleKana: work.titleKana,
-                        media: work.media,
-                        releasedOn: work.releasedOn,
-                        imageUrl: work.image ? work.image.recommendedImageUrl : '',
-                        casts: work.casts.nodes.map(c => ({
-                            character: c.character ? c.character.name : '',
-                            actor: c.person ? c.person.name : ''
-                        })).filter(c => c.character && c.actor).slice(0, 4), // 主要4名
-                        streamingLinks: {
-                            dAnimeStore: matchedStreaming.dAnimeStore || '',
-                            unext: matchedStreaming.unext || '',
-                            amazon: matchedStreaming.amazon || '',
-                            netflix: matchedStreaming.netflix || '',
-                            abema: matchedStreaming.abema || '',
-                            dmm: matchedStreaming.dmm || '',
-                            nico: matchedStreaming.nico || ''
-                        }
+                        id: media.id,
+                        title: title,
+                        titleKana: media.title.romaji || '',
+                        media: media.format || 'TV',
+                        releasedOn: releasedOn,
+                        imageUrl: media.coverImage ? media.coverImage.large : '',
+                        casts: casts,
+                        streamingLinks: streamingLinks,
+                        formatLabel: formatLabel,
+                        statusLabel: statusLabel,
+                        startDateLabel: startDateLabel,
+                        episodesLabel: episodesLabel,
+                        durationLabel: durationLabel,
+                        seasonLabelVal: seasonLabelVal,
+                        studioName: translatedStudio,
+                        officialSite: officialSite,
+                        directors: directors,
+                        originalCreators: originalCreators,
+                        scriptwriters: scriptwriters,
+                        composers: composers
                     };
                 });
 
@@ -295,14 +558,14 @@
                 renderAnimeByDay(activeDay);
 
             } catch (error) {
-                console.error('Error loading hybrid anime data:', error);
+                console.error('Error loading anime data:', error);
                 loader.classList.add('hidden');
                 errorMsg.innerHTML = `
                     <div class="max-w-md mx-auto p-6 bg-slate-800 rounded-xl border border-slate-700 shadow-xl">
                         <p class="text-red-400 font-bold mb-4">データの取得に失敗しました</p>
                         <p class="text-xs text-slate-400 mb-6 leading-relaxed">
-                            接続エラー、またはアクセストークンが正しくない可能性があります。<br>
-                            右上の「🔑 Annict連携」ボタンからキーを再設定し、時間をおいて再読込してください。
+                            接続エラー、またはAPIサーバーの一時的な障害の可能性があります。<br>
+                            時間をおいてページを再読み込みしてください。
                         </p>
                         <p class="text-[10px] text-slate-500 bg-slate-900/50 p-2 rounded border border-slate-800 text-left">
                             エラー詳細: ${escapeHtml(error.message || String(error))}
@@ -361,15 +624,60 @@
                 const borderClass = isSelected ? 'border-blue-500' : 'border-transparent';
                 const btnClass = isSelected ? 'bg-blue-600 text-white' : 'bg-slate-900/80 text-slate-400 hover:text-white';
 
-                // キャスト表示の生成
+                // 基本情報表示の生成
+                const infoHtml = `
+                    <div class="text-[11px] text-slate-400 mt-2 space-y-0.5 border-t border-slate-700/50 pt-2 font-medium">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">放送期・状態:</span>
+                            <span class="text-slate-300 font-bold">${escapeHtml(anime.seasonLabelVal)} (${escapeHtml(anime.statusLabel)})</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">開始日:</span>
+                            <span class="text-slate-300">${escapeHtml(anime.startDateLabel)}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">話数・時間:</span>
+                            <span class="text-slate-300">${escapeHtml(anime.episodesLabel)} / ${escapeHtml(anime.durationLabel)}</span>
+                        </div>
+                        <div class="flex justify-between truncate">
+                            <span class="text-slate-500 mr-2">制作会社:</span>
+                            <span class="text-slate-300 truncate" title="${escapeHtml(anime.studioName)}">${escapeHtml(anime.studioName)}</span>
+                        </div>
+                    </div>
+                `;
+
+                // スタッフ情報表示の生成
+                const staffList = [];
+                if (anime.originalCreators.length > 0) {
+                    staffList.push(`<div><span class="text-slate-500 mr-1">原作:</span><span class="text-slate-300">${escapeHtml(anime.originalCreators.slice(0, 2).join('、'))}</span></div>`);
+                }
+                if (anime.directors.length > 0) {
+                    staffList.push(`<div><span class="text-slate-500 mr-1">監督:</span><span class="text-slate-300">${escapeHtml(anime.directors.slice(0, 2).join('、'))}</span></div>`);
+                }
+                if (anime.scriptwriters.length > 0) {
+                    staffList.push(`<div><span class="text-slate-500 mr-1">脚本/構成:</span><span class="text-slate-300">${escapeHtml(anime.scriptwriters.slice(0, 2).join('、'))}</span></div>`);
+                }
+                if (anime.composers.length > 0) {
+                    staffList.push(`<div><span class="text-slate-500 mr-1">音楽:</span><span class="text-slate-300">${escapeHtml(anime.composers.slice(0, 2).join('、'))}</span></div>`);
+                }
+
+                const staffHtml = staffList.length > 0
+                    ? `
+                    <div class="text-[11px] text-slate-400 mt-2 space-y-0.5 border-t border-slate-700/50 pt-2 font-medium">
+                        ${staffList.join('')}
+                    </div>
+                    `
+                    : '';
+
+                // キャスティング（声優）表示の生成
                 const castHtml = anime.casts.length > 0
                     ? `
                     <div class="text-[10px] text-slate-400 border-t border-slate-700/50 pt-2 mt-2">
-                        <strong class="text-slate-300">主要キャスト:</strong>
-                        <div class="grid grid-cols-2 gap-1 mt-1 font-semibold text-slate-400">
+                        <strong class="text-slate-300 block mb-1">主要キャスト:</strong>
+                        <div class="grid grid-cols-2 gap-x-2 gap-y-1 font-semibold text-slate-400 max-h-[80px] overflow-y-auto pr-1 select-none">
                             ${anime.casts.map(c => `
                                 <div class="truncate" title="${escapeHtml(c.character)}: ${escapeHtml(c.actor)}">
-                                    • ${escapeHtml(c.actor)} <span class="text-[9px] text-slate-500">(${escapeHtml(c.character)})</span>
+                                    • ${escapeHtml(c.actor)} <span class="text-[8px] text-slate-500 font-normal">(${escapeHtml(c.character)})</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -377,13 +685,15 @@
                     `
                     : '';
 
-                // 配信サービスのバッジ生成
+                // 配信サービス・公式サイトのバッジ生成
                 const links = anime.streamingLinks;
-                const streamingHtml = (links.dAnimeStore || links.unext || links.amazon || links.netflix || links.abema || links.dmm || links.nico)
+                const hasLinks = (links.dAnimeStore || links.unext || links.amazon || links.netflix || links.abema || links.dmm || links.nico || anime.officialSite);
+                const streamingHtml = hasLinks
                     ? `
                     <div class="text-[10px] text-slate-400 border-t border-slate-700/50 pt-2 mt-2">
-                        <strong class="text-slate-300 block mb-1">配信サイト:</strong>
+                        <strong class="text-slate-300 block mb-1">リンク・配信:</strong>
                         <div class="flex flex-wrap gap-1">
+                            ${anime.officialSite ? `<a href="${anime.officialSite}" target="_blank" class="text-[9px] bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-900/50 transition-colors font-bold flex items-center gap-0.5">🌐 公式</a>` : ''}
                             ${links.dAnimeStore ? `<a href="${links.dAnimeStore}" target="_blank" class="text-[9px] bg-red-950/60 hover:bg-red-900/80 text-red-300 px-1.5 py-0.5 rounded border border-red-900/50 transition-colors">dアニメ</a>` : ''}
                             ${links.unext ? `<a href="${links.unext}" target="_blank" class="text-[9px] bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 px-1.5 py-0.5 rounded border border-blue-900/50 transition-colors">U-NEXT</a>` : ''}
                             ${links.amazon ? `<a href="${links.amazon}" target="_blank" class="text-[9px] bg-yellow-950/60 hover:bg-yellow-900/80 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-900/50 transition-colors">Prime</a>` : ''}
@@ -430,6 +740,8 @@
                                 <h2 class="font-bold text-sm mb-2 line-clamp-2 hover:text-blue-400 transition-colors" title="${escapeHtml(anime.title)}">
                                     ${escapeHtml(anime.title)}
                                 </h2>
+                                ${infoHtml}
+                                ${staffHtml}
                                 ${castHtml}
                             </div>
                             <div class="mt-auto">
@@ -516,40 +828,7 @@
             });
         }
 
-        // モーダルの制御
-        function setupAnnictModal() {
-            const modal = document.getElementById('annict-modal');
-            const btn = document.getElementById('annict-btn');
-            const cancelBtn = document.getElementById('annict-cancel-btn');
-            const saveBtn = document.getElementById('annict-save-btn');
-            const input = document.getElementById('annict-token-input');
 
-            btn.addEventListener('click', () => {
-                input.value = localStorage.getItem('annict_token') || '';
-                modal.classList.remove('hidden');
-            });
-
-            cancelBtn.addEventListener('click', () => {
-                modal.classList.add('hidden');
-            });
-
-            saveBtn.addEventListener('click', () => {
-                const token = input.value.trim();
-                if (token) {
-                    localStorage.setItem('annict_token', token);
-                } else {
-                    localStorage.removeItem('annict_token');
-                }
-                modal.classList.add('hidden');
-                location.reload();
-            });
-
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.add('hidden');
-                }
-            });
-        }
 
         document.addEventListener('DOMContentLoaded', () => {
             // UIのアクティブスタイルを適用
@@ -559,9 +838,18 @@
                 activeTab.classList.add('bg-blue-600', 'text-white');
             }
 
+            // セレクトボックスの初期化とイベント設定
+            populateSelectors();
+            
+            const yearSelect = document.getElementById('year-select');
+            const seasonSelect = document.getElementById('season-select');
+            
+            yearSelect.addEventListener('change', () => loadAllAnimeData());
+            seasonSelect.addEventListener('change', () => loadAllAnimeData());
+
             setupDayTabs();
             setupGridEvents();
-            loadAllAnimeData(1);
+            loadAllAnimeData();
         });
     </script>
 </body>
