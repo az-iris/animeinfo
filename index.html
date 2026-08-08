@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>今期のアニメ - Anime App</title>
+    <title>Season's Anime Info - 今期＆過去アニメ情報</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,9 +45,12 @@
 <body class="min-h-screen">
     <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-10">
         <div class="container mx-auto px-4 py-6 flex justify-between items-center">
-            <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-                今期のアニメ
-            </h1>
+            <div class="flex flex-col">
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                    Season's Anime Info
+                </h1>
+                <span class="text-xs text-slate-400 mt-1 font-medium">今期＆過去アニメの番組表・お気に入り管理</span>
+            </div>
             <div id="season-display" class="bg-slate-800 border border-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2">
                 <span>📅</span> <span id="season-label">読み込み中...</span>
             </div>
@@ -75,6 +78,28 @@
             </div>
         </div>
 
+        <!-- 検索ボックス -->
+        <div id="search-bar-container" class="max-w-md mx-auto mb-8 hidden">
+            <div class="flex gap-2">
+                <div class="relative flex-grow">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <input type="text" id="search-input" placeholder="作品名、キャラ、キャスト、制作会社で検索..." class="w-full pl-10 pr-10 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-all shadow-inner">
+                    <button id="search-clear-btn" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white hidden">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <button id="search-btn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-colors shadow-md flex items-center gap-1 shrink-0">
+                    検索
+                </button>
+            </div>
+        </div>
+
         <!-- 曜日選択タブ -->
         <div id="day-tabs" class="flex flex-wrap justify-center gap-2 mb-8">
             <button class="day-tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white" data-day="monday">月曜日</button>
@@ -86,6 +111,7 @@
             <button class="day-tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white" data-day="sunday">日曜日</button>
             <button class="day-tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white" data-day="other">その他</button>
             <button class="day-tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white" data-day="selected">📌 選択中</button>
+            <button class="day-tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white" data-day="search">🔍 作品検索</button>
         </div>
 
         <div id="loader-container" class="flex flex-col items-center justify-center py-20">
@@ -114,11 +140,39 @@
 
     <script>
         let allAnimeList = [];
+        let searchResultsList = [];
+        let isSearchMode = false;
         let activeDay = 'monday';
         let isLoadComplete = false;
         
+        // 選択されたアニメオブジェクトを保存する配列
+        let selectedAnimeList = JSON.parse(localStorage.getItem('selected_anime_list') || '[]');
         // 選択されたアニメIDを保存するSet
-        const selectedAnimeIds = new Set(JSON.parse(localStorage.getItem('selected_anime_ids') || '[]'));
+        const selectedAnimeIds = new Set(selectedAnimeList.map(a => a.id));
+
+        // 過去のselected_anime_idsデータ互換性
+        const legacyIds = JSON.parse(localStorage.getItem('selected_anime_ids') || '[]');
+        if (legacyIds.length > 0 && selectedAnimeList.length === 0) {
+            legacyIds.forEach(id => selectedAnimeIds.add(id));
+        }
+
+        function saveSelectedAnime() {
+            localStorage.setItem('selected_anime_list', JSON.stringify(selectedAnimeList));
+            localStorage.setItem('selected_anime_ids', JSON.stringify([...selectedAnimeIds]));
+        }
+
+        function toggleSelectAnime(anime) {
+            if (selectedAnimeIds.has(anime.id)) {
+                selectedAnimeIds.delete(anime.id);
+                selectedAnimeList = selectedAnimeList.filter(a => a.id !== anime.id);
+            } else {
+                selectedAnimeIds.add(anime.id);
+                if (!selectedAnimeList.some(a => a.id === anime.id)) {
+                    selectedAnimeList.push(anime);
+                }
+            }
+            saveSelectedAnime();
+        }
 
         const daysMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         
@@ -184,9 +238,9 @@
             const seasonSelect = document.getElementById('season-select');
             
             const currentYear = new Date().getFullYear();
-            const startYear = 2020;
+            const startYear = 2010;
             
-            // 現在の年+1から2020年までを追加
+            // 現在の年+1から2010年までを追加
             yearSelect.innerHTML = '';
             for (let y = currentYear + 1; y >= startYear; y--) {
                 const opt = document.createElement('option');
@@ -201,6 +255,249 @@
             seasonSelect.value = current.season;
         }
 
+        // AniList Media オブジェクトをアプリ共通の Anime オブジェクト構造に変換する関数
+        function mapAniListMediaToAnime(media) {
+            const title = media.title.native || media.title.romaji || media.title.english;
+            
+            let releasedOn = '';
+            if (media.startDate && media.startDate.year && media.startDate.month && media.startDate.day) {
+                releasedOn = `${media.startDate.year}-${String(media.startDate.month).padStart(2, '0')}-${String(media.startDate.day).padStart(2, '0')}`;
+            }
+
+            // キャスト情報（メインキャスト全員）
+            const casts = (media.characters.edges || []).map(edge => {
+                const characterName = edge.node.name.native || edge.node.name.full;
+                const voiceActor = edge.voiceActors && edge.voiceActors[0] 
+                    ? (edge.voiceActors[0].name.native || edge.voiceActors[0].name.full) 
+                    : '';
+                return {
+                    character: characterName,
+                    actor: voiceActor
+                };
+            }).filter(c => c.character && c.actor);
+
+            // 配信サービスの抽出
+            const streamingLinks = {
+                dAnimeStore: '',
+                unext: '',
+                amazon: '',
+                netflix: '',
+                abema: '',
+                dmm: '',
+                nico: ''
+            };
+            if (media.externalLinks) {
+                media.externalLinks.forEach(link => {
+                    const siteName = link.site.toLowerCase();
+                    const url = link.url;
+                    if (siteName.includes('danime') || siteName.includes('d anime') || url.includes('animestore.docomo')) {
+                        streamingLinks.dAnimeStore = url;
+                    } else if (siteName.includes('u-next') || url.includes('unext.jp')) {
+                        streamingLinks.unext = url;
+                    } else if (siteName.includes('amazon') || siteName.includes('prime video') || url.includes('amazon.co.jp') || url.includes('amazon.com')) {
+                        streamingLinks.amazon = url;
+                    } else if (siteName.includes('netflix') || url.includes('netflix.com')) {
+                        streamingLinks.netflix = url;
+                    } else if (siteName.includes('abema') || url.includes('abema.tv')) {
+                        streamingLinks.abema = url;
+                    } else if (siteName.includes('dmm') || url.includes('dmm.com')) {
+                        streamingLinks.dmm = url;
+                    } else if (siteName.includes('niconico') || siteName.includes('nico') || url.includes('nicovideo.jp')) {
+                        streamingLinks.nico = url;
+                    }
+                });
+            }
+
+            // フォーマットと言語変換
+            const formatMap = {
+                'TV': 'TVアニメ',
+                'TV_SHORT': 'TV短編',
+                'MOVIE': '劇場映画',
+                'SPECIAL': '特別編',
+                'OVA': 'OVA',
+                'ONA': 'Web配信',
+                'MUSIC': 'MV'
+            };
+            const formatLabel = formatMap[media.format] || media.format || '不明';
+
+            const statusMap = {
+                'RELEASING': '放送中',
+                'FINISHED': '放送終了',
+                'NOT_YET_RELEASED': '放送前',
+                'CANCELLED': '中止',
+                'HIATUS': '休止中'
+            };
+            const statusLabel = statusMap[media.status] || media.status || '不明';
+
+            let startDateLabel = '不明';
+            if (media.startDate && media.startDate.year && media.startDate.month && media.startDate.day) {
+                startDateLabel = `${media.startDate.year}年${media.startDate.month}月${media.startDate.day}日`;
+            }
+
+            const episodesLabel = media.episodes ? `${media.episodes}話` : '未定';
+            const durationLabel = media.duration ? `各${media.duration}分` : '時間未定';
+
+            const seasonMap = {
+                'WINTER': '冬',
+                'SPRING': '春',
+                'SUMMER': '夏',
+                'FALL': '秋'
+            };
+            const seasonLabelVal = (media.seasonYear && media.season) 
+                ? `${media.seasonYear}年 ${seasonMap[media.season] || media.season}` 
+                : '不明';
+
+            // アニメーション制作会社
+            const animationStudio = media.studios && media.studios.nodes 
+                ? (media.studios.nodes.find(s => s.isAnimationStudio)?.name || media.studios.nodes[0]?.name || '不明')
+                : '不明';
+
+            // 制作会社の日本語表記変換ディクショナリ
+            const studioMapJa = {
+                "madhouse": "マッドハウス",
+                "cloverworks": "クローバーワークス",
+                "a-1 pictures": "A-1 Pictures",
+                "wit studio": "WIT STUDIO",
+                "mappa": "MAPPA",
+                "ufotable": "ufotable",
+                "kyoto animation": "京都アニメーション",
+                "bones": "ボンズ",
+                "shaft": "シャフト",
+                "sunrise": "サンライズ",
+                "bandai namco filmworks": "バンダイナムコフィルムワークス",
+                "production i.g": "Production I.G",
+                "trigger": "TRIGGER",
+                "toei animation": "東映アニメーション",
+                "studio pierrot": "ぴえろ",
+                "pierrot": "ぴえろ",
+                "studio ghibli": "スタジオジブリ",
+                "silver link.": "SILVER LINK.",
+                "j.c.staff": "J.C.STAFF",
+                "liden films": "ライデンフィルム",
+                "studio deen": "スタジオディーン",
+                "david production": "david production",
+                "shin-ei animation": "シンエイ動画",
+                "tms entertainment": "トムス・エンタテインメント",
+                "doga kobo": "動画工房",
+                "p.a. works": "P.A.WORKS",
+                "lerche": "ラルケ",
+                "studio 3hz": "Studio 3Hz",
+                "kinema citrus": "キネマシトラス",
+                "studio bind": "スタジオバインド",
+                "project no.9": "project No.9",
+                "feel.": "feel.",
+                "brain's base": "ブレインズ・ベース",
+                "zero-g": "ゼロジー",
+                "geek toys": "GEEK TOYS",
+                "emt squared": "EMTスクエアード",
+                "synergysp": "シナジーSP",
+                "tezuka productions": "手塚プロダクション",
+                "bibury animation studios": "バイブリーアニメーションスタジオ",
+                "science saru": "サイエンスSARU",
+                "millepensee": "ミルパンセ",
+                "platinum vision": "プラチナビジョン",
+                "lay-duce": "Lay-duce",
+                "c-station": "C-Station",
+                "olm": "OLM",
+                "gonzo": "GONZO",
+                "geno studio": "ジェノスタジオ",
+                "nexus": "Nexus",
+                "engi": "ENGI",
+                "seven arcs": "セブン・アークス",
+                "tatsunoko production": "タツノコプロ",
+                "diomedéa": "ディオメディア",
+                "gainax": "ガイナックス",
+                "ajiado": "亜細亜堂",
+                "ajia-do": "亜細亜堂",
+                "yostar pictures": "Yostar Pictures",
+                "quad": "Quad",
+                "cygames pictures": "Cygames Pictures",
+                "okuruto noboru": "オクルトノボル",
+                "signal.md": "シグナル・エムディ",
+                "satelight": "サテライト",
+                "pine jam": "PINE JAM",
+                "seven": "セブン",
+                "comix wave films": "コミックス・ウェーブ・フィルム",
+                "studio ponoc": "スタジオポノック",
+                "studio voln": "studio VOLN",
+                "8bit": "エイトビット",
+                "eight bit": "エイトビット",
+                "shuka": "朱夏",
+                "white fox": "WHITE FOX",
+                "studio trigger": "TRIGGER",
+                "feel": "feel.",
+                "drive": "ドライブ",
+                "c2c": "C2C",
+                "m.s.c": "M.S.C",
+                "gohands": "GoHands",
+                "studio kafka": "スタジオカフカ",
+                "passione": "パッショーネ",
+                "kinema citrus co.": "キネマシトラス"
+            };
+            const lowerStudio = animationStudio.toLowerCase();
+            const translatedStudio = studioMapJa[lowerStudio] || animationStudio;
+
+            // スタッフ情報（監督、原作、脚本、音楽）の抽出
+            const directors = [];
+            const originalCreators = [];
+            const scriptwriters = [];
+            const composers = [];
+
+            if (media.staff && media.staff.edges) {
+                media.staff.edges.forEach(edge => {
+                    const role = (edge.role || '').toLowerCase();
+                    const staffName = edge.node.name.native || edge.node.name.full;
+                    if (!staffName) return;
+
+                    if (role === 'director' || role === 'series director' || role === 'chief director') {
+                        directors.push(staffName);
+                    } else if (role === 'original creator' || role === 'original story' || role === 'original character design' || role.includes('original creator') || role.includes('original story')) {
+                        originalCreators.push(staffName);
+                    } else if (role === 'series composition' || role === 'script' || role === 'screenplay' || role.includes('series composition') || role.includes('screenplay')) {
+                        scriptwriters.push(staffName);
+                    } else if (role === 'music' || role === 'composer' || role === 'music composer') {
+                        composers.push(staffName);
+                    }
+                });
+            }
+
+            // 公式サイトURLの抽出
+            let officialSite = '';
+            if (media.externalLinks) {
+                const officialLink = media.externalLinks.find(link => 
+                    link.site.toLowerCase().includes('official') || 
+                    link.site.toLowerCase() === 'website' || 
+                    link.site.toLowerCase().includes('公式サイト')
+                );
+                if (officialLink) {
+                    officialSite = officialLink.url;
+                }
+            }
+
+            return {
+                id: media.id,
+                title: title,
+                titleKana: media.title.romaji || '',
+                media: media.format || 'TV',
+                releasedOn: releasedOn,
+                imageUrl: media.coverImage ? media.coverImage.large : '',
+                casts: casts,
+                streamingLinks: streamingLinks,
+                formatLabel: formatLabel,
+                statusLabel: statusLabel,
+                startDateLabel: startDateLabel,
+                episodesLabel: episodesLabel,
+                durationLabel: durationLabel,
+                seasonLabelVal: seasonLabelVal,
+                studioName: translatedStudio,
+                officialSite: officialSite,
+                directors: directors,
+                originalCreators: originalCreators,
+                scriptwriters: scriptwriters,
+                composers: composers
+            };
+        }
+
         // AniList GraphQL からデータを一括取得する関数
         async function loadAllAnimeData() {
             const grid = document.getElementById('anime-grid');
@@ -212,6 +509,34 @@
                 grid.classList.add('hidden');
                 loader.classList.remove('hidden');
                 errorMsg.classList.add('hidden');
+
+                // 新しいシーズンのデータを読み込む際、検索入力とモードをクリアする
+                isSearchMode = false;
+                const searchBarContainer = document.getElementById('search-bar-container');
+                if (searchBarContainer) searchBarContainer.classList.add('hidden');
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) searchInput.value = '';
+                const clearBtn = document.getElementById('search-clear-btn');
+                if (clearBtn) clearBtn.classList.add('hidden');
+
+                // 現在アクティブなのが「検索」タブなら、今日の曜日に戻す
+                if (activeDay === 'search') {
+                    const todayIndex = new Date().getDay();
+                    activeDay = daysMap[todayIndex];
+                }
+
+                // 曜日タブのアクティブスタイルを復元
+                const tabs = document.querySelectorAll('.day-tab-btn');
+                tabs.forEach(t => {
+                    const day = t.getAttribute('data-day');
+                    if (day === activeDay) {
+                        t.classList.remove('bg-slate-800', 'text-slate-300');
+                        t.classList.add('bg-blue-600', 'text-white');
+                    } else {
+                        t.classList.remove('bg-blue-600', 'text-white');
+                        t.classList.add('bg-slate-800', 'text-slate-300');
+                    }
+                });
 
                 const { year, season, label } = getSelectedSeasonInfo();
                 if (seasonLabel) {
@@ -309,248 +634,10 @@
 
                 const aniListMedia = result.data.Page.media;
 
+
+
                 // マッピング
-                allAnimeList = aniListMedia.map(media => {
-                    const title = media.title.native || media.title.romaji || media.title.english;
-                    
-                    let releasedOn = '';
-                    if (media.startDate && media.startDate.year && media.startDate.month && media.startDate.day) {
-                        releasedOn = `${media.startDate.year}-${String(media.startDate.month).padStart(2, '0')}-${String(media.startDate.day).padStart(2, '0')}`;
-                    }
-
-                    // キャスト情報（メインキャスト全員）
-                    const casts = (media.characters.edges || []).map(edge => {
-                        const characterName = edge.node.name.native || edge.node.name.full;
-                        const voiceActor = edge.voiceActors && edge.voiceActors[0] 
-                            ? (edge.voiceActors[0].name.native || edge.voiceActors[0].name.full) 
-                            : '';
-                        return {
-                            character: characterName,
-                            actor: voiceActor
-                        };
-                    }).filter(c => c.character && c.actor);
-
-                    // 配信サービスの抽出
-                    const streamingLinks = {
-                        dAnimeStore: '',
-                        unext: '',
-                        amazon: '',
-                        netflix: '',
-                        abema: '',
-                        dmm: '',
-                        nico: ''
-                    };
-                    if (media.externalLinks) {
-                        media.externalLinks.forEach(link => {
-                            const siteName = link.site.toLowerCase();
-                            const url = link.url;
-                            if (siteName.includes('danime') || siteName.includes('d anime') || url.includes('animestore.docomo')) {
-                                streamingLinks.dAnimeStore = url;
-                            } else if (siteName.includes('u-next') || url.includes('unext.jp')) {
-                                streamingLinks.unext = url;
-                            } else if (siteName.includes('amazon') || siteName.includes('prime video') || url.includes('amazon.co.jp') || url.includes('amazon.com')) {
-                                streamingLinks.amazon = url;
-                            } else if (siteName.includes('netflix') || url.includes('netflix.com')) {
-                                streamingLinks.netflix = url;
-                            } else if (siteName.includes('abema') || url.includes('abema.tv')) {
-                                streamingLinks.abema = url;
-                            } else if (siteName.includes('dmm') || url.includes('dmm.com')) {
-                                streamingLinks.dmm = url;
-                            } else if (siteName.includes('niconico') || siteName.includes('nico') || url.includes('nicovideo.jp')) {
-                                streamingLinks.nico = url;
-                            }
-                        });
-                    }
-
-                    // フォーマットと言語変換
-                    const formatMap = {
-                        'TV': 'TVアニメ',
-                        'TV_SHORT': 'TV短編',
-                        'MOVIE': '劇場映画',
-                        'SPECIAL': '特別編',
-                        'OVA': 'OVA',
-                        'ONA': 'Web配信',
-                        'MUSIC': 'MV'
-                    };
-                    const formatLabel = formatMap[media.format] || media.format || '不明';
-
-                    const statusMap = {
-                        'RELEASING': '放送中',
-                        'FINISHED': '放送終了',
-                        'NOT_YET_RELEASED': '放送前',
-                        'CANCELLED': '中止',
-                        'HIATUS': '休止中'
-                    };
-                    const statusLabel = statusMap[media.status] || media.status || '不明';
-
-                    let startDateLabel = '不明';
-                    if (media.startDate && media.startDate.year && media.startDate.month && media.startDate.day) {
-                        startDateLabel = `${media.startDate.year}年${media.startDate.month}月${media.startDate.day}日`;
-                    }
-
-                    const episodesLabel = media.episodes ? `${media.episodes}話` : '未定';
-                    const durationLabel = media.duration ? `各${media.duration}分` : '時間未定';
-
-                    const seasonMap = {
-                        'WINTER': '冬',
-                        'SPRING': '春',
-                        'SUMMER': '夏',
-                        'FALL': '秋'
-                    };
-                    const seasonLabelVal = (media.seasonYear && media.season) 
-                        ? `${media.seasonYear}年 ${seasonMap[media.season] || media.season}` 
-                        : '不明';
-
-                    // アニメーション制作会社
-                    const animationStudio = media.studios && media.studios.nodes 
-                        ? (media.studios.nodes.find(s => s.isAnimationStudio)?.name || media.studios.nodes[0]?.name || '不明')
-                        : '不明';
-
-                    // 制作会社の日本語表記変換ディクショナリ
-                    const studioMapJa = {
-                        "madhouse": "マッドハウス",
-                        "cloverworks": "クローバーワークス",
-                        "a-1 pictures": "A-1 Pictures",
-                        "wit studio": "WIT STUDIO",
-                        "mappa": "MAPPA",
-                        "ufotable": "ufotable",
-                        "kyoto animation": "京都アニメーション",
-                        "bones": "ボンズ",
-                        "shaft": "シャフト",
-                        "sunrise": "サンライズ",
-                        "bandai namco filmworks": "バンダイナムコフィルムワークス",
-                        "production i.g": "Production I.G",
-                        "trigger": "TRIGGER",
-                        "toei animation": "東映アニメーション",
-                        "studio pierrot": "ぴえろ",
-                        "pierrot": "ぴえろ",
-                        "studio ghibli": "スタジオジブリ",
-                        "silver link.": "SILVER LINK.",
-                        "j.c.staff": "J.C.STAFF",
-                        "liden films": "ライデンフィルム",
-                        "studio deen": "スタジオディーン",
-                        "david production": "david production",
-                        "shin-ei animation": "シンエイ動画",
-                        "tms entertainment": "トムス・エンタテインメント",
-                        "doga kobo": "動画工房",
-                        "p.a. works": "P.A.WORKS",
-                        "lerche": "ラルケ",
-                        "studio 3hz": "Studio 3Hz",
-                        "kinema citrus": "キネマシトラス",
-                        "studio bind": "スタジオバインド",
-                        "project no.9": "project No.9",
-                        "feel.": "feel.",
-                        "brain's base": "ブレインズ・ベース",
-                        "zero-g": "ゼロジー",
-                        "geek toys": "GEEK TOYS",
-                        "emt squared": "EMTスクエアード",
-                        "synergysp": "シナジーSP",
-                        "tezuka productions": "手塚プロダクション",
-                        "bibury animation studios": "バイブリーアニメーションスタジオ",
-                        "science saru": "サイエンスSARU",
-                        "millepensee": "ミルパンセ",
-                        "platinum vision": "プラチナビジョン",
-                        "lay-duce": "Lay-duce",
-                        "c-station": "C-Station",
-                        "olm": "OLM",
-                        "gonzo": "GONZO",
-                        "geno studio": "ジェノスタジオ",
-                        "nexus": "Nexus",
-                        "engi": "ENGI",
-                        "seven arcs": "セブン・アークス",
-                        "tatsunoko production": "タツノコプロ",
-                        "diomedéa": "ディオメディア",
-                        "gainax": "ガイナックス",
-                        "ajiado": "亜細亜堂",
-                        "ajia-do": "亜細亜堂",
-                        "yostar pictures": "Yostar Pictures",
-                        "quad": "Quad",
-                        "cygames pictures": "Cygames Pictures",
-                        "okuruto noboru": "オクルトノボル",
-                        "signal.md": "シグナル・エムディ",
-                        "satelight": "サテライト",
-                        "pine jam": "PINE JAM",
-                        "seven": "セブン",
-                        "comix wave films": "コミックス・ウェーブ・フィルム",
-                        "studio ponoc": "スタジオポノック",
-                        "studio voln": "studio VOLN",
-                        "8bit": "エイトビット",
-                        "eight bit": "エイトビット",
-                        "shuka": "朱夏",
-                        "white fox": "WHITE FOX",
-                        "studio trigger": "TRIGGER",
-                        "feel": "feel.",
-                        "drive": "ドライブ",
-                        "c2c": "C2C",
-                        "m.s.c": "M.S.C",
-                        "gohands": "GoHands",
-                        "studio kafka": "スタジオカフカ",
-                        "passione": "パッショーネ",
-                        "kinema citrus co.": "キネマシトラス"
-                    };
-                    const lowerStudio = animationStudio.toLowerCase();
-                    const translatedStudio = studioMapJa[lowerStudio] || animationStudio;
-
-                    // スタッフ情報（監督、原作、脚本、音楽）の抽出
-                    const directors = [];
-                    const originalCreators = [];
-                    const scriptwriters = [];
-                    const composers = [];
-
-                    if (media.staff && media.staff.edges) {
-                        media.staff.edges.forEach(edge => {
-                            const role = (edge.role || '').toLowerCase();
-                            const staffName = edge.node.name.native || edge.node.name.full;
-                            if (!staffName) return;
-
-                            if (role === 'director' || role === 'series director' || role === 'chief director') {
-                                directors.push(staffName);
-                            } else if (role === 'original creator' || role === 'original story' || role === 'original character design' || role.includes('original creator') || role.includes('original story')) {
-                                originalCreators.push(staffName);
-                            } else if (role === 'series composition' || role === 'script' || role === 'screenplay' || role.includes('series composition') || role.includes('screenplay')) {
-                                scriptwriters.push(staffName);
-                            } else if (role === 'music' || role === 'composer' || role === 'music composer') {
-                                composers.push(staffName);
-                            }
-                        });
-                    }
-
-                    // 公式サイトURLの抽出
-                    let officialSite = '';
-                    if (media.externalLinks) {
-                        const officialLink = media.externalLinks.find(link => 
-                            link.site.toLowerCase().includes('official') || 
-                            link.site.toLowerCase() === 'website' || 
-                            link.site.toLowerCase().includes('公式サイト')
-                        );
-                        if (officialLink) {
-                            officialSite = officialLink.url;
-                        }
-                    }
-
-                    return {
-                        id: media.id,
-                        title: title,
-                        titleKana: media.title.romaji || '',
-                        media: media.format || 'TV',
-                        releasedOn: releasedOn,
-                        imageUrl: media.coverImage ? media.coverImage.large : '',
-                        casts: casts,
-                        streamingLinks: streamingLinks,
-                        formatLabel: formatLabel,
-                        statusLabel: statusLabel,
-                        startDateLabel: startDateLabel,
-                        episodesLabel: episodesLabel,
-                        durationLabel: durationLabel,
-                        seasonLabelVal: seasonLabelVal,
-                        studioName: translatedStudio,
-                        officialSite: officialSite,
-                        directors: directors,
-                        originalCreators: originalCreators,
-                        scriptwriters: scriptwriters,
-                        composers: composers
-                    };
-                });
+                allAnimeList = aniListMedia.map(mapAniListMediaToAnime);
 
                 isLoadComplete = true;
                 loader.classList.add('hidden');
@@ -576,30 +663,194 @@
             }
         }
 
+        // AniList から過去作品を含めてグローバル検索する関数
+        async function searchAnime(queryText) {
+            const grid = document.getElementById('anime-grid');
+            const loader = document.getElementById('loader-container');
+            const errorMsg = document.getElementById('error-message');
+            const seasonLabel = document.getElementById('season-label');
+            const clearBtn = document.getElementById('search-clear-btn');
+
+            if (!queryText.trim()) return;
+
+            try {
+                grid.classList.add('hidden');
+                loader.classList.remove('hidden');
+                errorMsg.classList.add('hidden');
+                if (clearBtn) clearBtn.classList.remove('hidden');
+
+                if (seasonLabel) {
+                    seasonLabel.textContent = `検索結果: "${queryText}"`;
+                }
+
+                // 検索時は曜日タブのアクティブスタイルを解除する
+                const tabs = document.querySelectorAll('.day-tab-btn');
+                tabs.forEach(t => {
+                    t.classList.remove('bg-blue-600', 'text-white');
+                    t.classList.add('bg-slate-800', 'text-slate-300');
+                });
+
+                const query = `
+                    query($search: String) {
+                        Page(page: 1, perPage: 50) {
+                            media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
+                                id
+                                title {
+                                    romaji
+                                    english
+                                    native
+                                }
+                                coverImage {
+                                    large
+                                }
+                                startDate {
+                                    year
+                                    month
+                                    day
+                                }
+                                format
+                                status
+                                episodes
+                                duration
+                                season
+                                seasonYear
+                                studios(isMain: true) {
+                                    nodes {
+                                        name
+                                        isAnimationStudio
+                                    }
+                                }
+                                staff {
+                                    edges {
+                                        role
+                                        node {
+                                            name {
+                                                full
+                                                native
+                                            }
+                                        }
+                                    }
+                                }
+                                externalLinks {
+                                    site
+                                    url
+                                    type
+                                }
+                                characters(role: MAIN, sort: [ROLE]) {
+                                    edges {
+                                        node {
+                                            name {
+                                                full
+                                                native
+                                            }
+                                        }
+                                        voiceActors(language: JAPANESE) {
+                                            name {
+                                                full
+                                                native
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                `;
+
+                const res = await fetch('https://graphql.anilist.co', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        variables: { search: queryText }
+                    })
+                });
+
+                if (!res.ok) {
+                    throw new Error('AniList API response error');
+                }
+
+                const result = await res.json();
+                if (result.errors) {
+                    throw new Error(result.errors[0].message);
+                }
+
+                const aniListMedia = result.data.Page.media;
+
+                // 共通のマッピング関数を利用
+                searchResultsList = aniListMedia.map(mapAniListMediaToAnime);
+
+                isSearchMode = true;
+                loader.classList.add('hidden');
+                grid.classList.remove('hidden');
+                
+                renderAnimeByDay('search');
+
+            } catch (error) {
+                console.error('Error searching anime:', error);
+                loader.classList.add('hidden');
+                errorMsg.innerHTML = `
+                    <div class="max-w-md mx-auto p-6 bg-slate-800 rounded-xl border border-slate-700 shadow-xl">
+                        <p class="text-red-400 font-bold mb-4">検索に失敗しました</p>
+                        <p class="text-xs text-slate-400 mb-6 leading-relaxed">
+                            接続エラー、またはキーワードの指定方法に問題がある可能性があります。<br>
+                            キーワードを変えて再度お試しください。
+                        </p>
+                        <p class="text-[10px] text-slate-500 bg-slate-900/50 p-2 rounded border border-slate-800 text-left">
+                            エラー詳細: ${escapeHtml(error.message || String(error))}
+                        </p>
+                    </div>
+                `;
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
         // 曜日ごとにアニメをフィルタしてグリッドに描画する関数
         function renderAnimeByDay(day) {
             const grid = document.getElementById('anime-grid');
             
-            const filtered = allAnimeList.filter(anime => {
-                if (day === 'selected') {
-                    return selectedAnimeIds.has(anime.id);
+            let filtered = [];
+
+            if (day === 'selected') {
+                // 自動移行: selectedAnimeIds にあって selectedAnimeList にないものをキャッシュから探して補完
+                let migrated = false;
+                selectedAnimeIds.forEach(id => {
+                    if (!selectedAnimeList.some(a => a.id === id)) {
+                        const found = allAnimeList.find(a => a.id === id) || searchResultsList.find(a => a.id === id);
+                        if (found) {
+                            selectedAnimeList.push(found);
+                            migrated = true;
+                        }
+                    }
+                });
+                if (migrated) {
+                    saveSelectedAnime();
                 }
 
-                // 放送開始日（releasedOn）から曜日を算出
-                let animeDay = 'other';
-                if (anime.releasedOn) {
-                    const date = new Date(anime.releasedOn);
-                    if (!isNaN(date.getTime())) {
-                        const dayIndex = date.getDay(); // 0:日, 1:月...
-                        animeDay = daysMap[dayIndex];
+                filtered = selectedAnimeList;
+            } else if (isSearchMode) {
+                filtered = searchResultsList;
+            } else {
+                filtered = allAnimeList.filter(anime => {
+                    // 放送開始日（releasedOn）から曜日を算出
+                    let animeDay = 'other';
+                    if (anime.releasedOn) {
+                        const date = new Date(anime.releasedOn);
+                        if (!isNaN(date.getTime())) {
+                            const dayIndex = date.getDay(); // 0:日, 1:月...
+                            animeDay = daysMap[dayIndex];
+                        }
                     }
-                }
-                
-                if (day === 'other') {
-                    return animeDay === 'other';
-                }
-                return animeDay === day;
-            });
+                    
+                    if (day === 'other') {
+                        return animeDay === 'other';
+                    }
+                    return animeDay === day;
+                });
+            }
 
             if (filtered.length === 0) {
                 if (day === 'selected') {
@@ -609,6 +860,21 @@
                             <p class="text-xs text-slate-600 mt-2">気になるアニメの右上にある ✓ をクリックして選択してください。</p>
                         </div>
                     `;
+                } else if (isSearchMode || day === 'search') {
+                    const queryVal = document.getElementById('search-input')?.value.trim();
+                    if (queryVal) {
+                        grid.innerHTML = `
+                            <div class="col-span-full text-center py-20 text-slate-500">
+                                <p class="text-sm">「${escapeHtml(queryVal)}」に一致するアニメは見つかりませんでした。</p>
+                            </div>
+                        `;
+                    } else {
+                        grid.innerHTML = `
+                            <div class="col-span-full text-center py-20 text-slate-500">
+                                <p class="text-sm">作品名、キャラ、キャスト、制作会社などを入力して検索してください。</p>
+                            </div>
+                        `;
+                    }
                 } else {
                     grid.innerHTML = `
                         <div class="col-span-full text-center py-20 text-slate-500">
@@ -767,10 +1033,15 @@
         // タブクリック時の曜日切り替え処理
         function setupDayTabs() {
             const tabs = document.querySelectorAll('.day-tab-btn');
+            const searchBarContainer = document.getElementById('search-bar-container');
+            const searchInput = document.getElementById('search-input');
+            const clearBtn = document.getElementById('search-clear-btn');
+            const seasonLabel = document.getElementById('season-label');
+
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     const day = tab.getAttribute('data-day');
-                    if (day === activeDay) return;
+                    if (day === activeDay && !isSearchMode) return;
 
                     activeDay = day;
 
@@ -782,7 +1053,27 @@
                     tab.classList.remove('bg-slate-800', 'text-slate-300');
                     tab.classList.add('bg-blue-600', 'text-white');
 
-                    renderAnimeByDay(activeDay);
+                    if (day === 'search') {
+                        isSearchMode = true;
+                        if (searchBarContainer) searchBarContainer.classList.remove('hidden');
+                        if (seasonLabel) {
+                            seasonLabel.textContent = '作品検索';
+                        }
+                        renderAnimeByDay('search');
+                    } else {
+                        isSearchMode = false;
+                        if (searchBarContainer) searchBarContainer.classList.add('hidden');
+                        if (searchInput) searchInput.value = '';
+                        if (clearBtn) clearBtn.classList.add('hidden');
+
+                        // シーズン表記を元に戻す
+                        const currentSeason = getSelectedSeasonInfo();
+                        if (seasonLabel) {
+                            seasonLabel.textContent = currentSeason.label;
+                        }
+
+                        renderAnimeByDay(activeDay);
+                    }
                 });
             });
         }
@@ -797,18 +1088,32 @@
                     
                     const malId = parseInt(btn.getAttribute('data-id'), 10);
                     
-                    if (selectedAnimeIds.has(malId)) {
-                        selectedAnimeIds.delete(malId);
-                    } else {
-                        selectedAnimeIds.add(malId);
+                    // 選択されたアニメオブジェクトを探す
+                    let animeObj = allAnimeList.find(a => a.id === malId);
+                    if (!animeObj && isSearchMode) {
+                        animeObj = searchResultsList.find(a => a.id === malId);
+                    }
+                    if (!animeObj) {
+                        animeObj = selectedAnimeList.find(a => a.id === malId);
                     }
 
-                    // localStorage に状態を保存
-                    localStorage.setItem('selected_anime_ids', JSON.stringify([...selectedAnimeIds]));
+                    if (animeObj) {
+                        toggleSelectAnime(animeObj);
+                    } else {
+                        // オブジェクトがどこにも見つからない場合はIDのみで処理（旧互換）
+                        if (selectedAnimeIds.has(malId)) {
+                            selectedAnimeIds.delete(malId);
+                        } else {
+                            selectedAnimeIds.add(malId);
+                        }
+                        saveSelectedAnime();
+                    }
 
                     if (activeDay === 'selected') {
+                        // お気に入り画面では即座にリストから除外されるように再描画
                         renderAnimeByDay('selected');
                     } else {
+                        // 通常の曜日表示および検索画面表示時はそのカードの枠線とボタンだけトグルする
                         const card = btn.closest('.anime-card');
                         const isNowSelected = selectedAnimeIds.has(malId);
                         
@@ -825,6 +1130,46 @@
                         }
                     }
                 }
+            });
+        }
+
+        // 検索窓に関連するイベントリスナーの設定
+        function setupSearchEvents() {
+            const searchInput = document.getElementById('search-input');
+            const searchBtn = document.getElementById('search-btn');
+            const clearBtn = document.getElementById('search-clear-btn');
+            const seasonLabel = document.getElementById('season-label');
+
+            if (!searchInput || !searchBtn || !clearBtn) return;
+
+            // 入力中に入力クリアボタンを表示・非表示にする
+            searchInput.addEventListener('input', () => {
+                if (searchInput.value.trim()) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
+            });
+
+            // Enterキーでの検索開始
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchAnime(searchInput.value.trim());
+                }
+            });
+
+            // 検索ボタンクリックでの検索開始
+            searchBtn.addEventListener('click', () => {
+                searchAnime(searchInput.value.trim());
+            });
+
+            // クリアボタンクリックで通常モードに戻る
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                clearBtn.classList.add('hidden');
+                searchResultsList = [];
+                renderAnimeByDay('search');
             });
         }
 
@@ -849,6 +1194,7 @@
 
             setupDayTabs();
             setupGridEvents();
+            setupSearchEvents();
             loadAllAnimeData();
         });
     </script>
